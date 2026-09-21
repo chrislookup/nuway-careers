@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Careers at Nuway — Landscape Supplies, Pavers & Walls</title>
+<meta name="description" content="Jobs at Nuway Landscape Supplies across 11 South East Queensland stores: sales, drivers, yard, managers. Apply online or register your interest.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/careers.css">
+<link rel="icon" href="assets/favicon.svg">
+</head>
+<body>
+
+<div id="demo" class="demo-banner hidden">Demo mode — sample jobs, nothing is saved. Add your Supabase keys in <code>assets/config.js</code> to go live.</div>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="logo" href="https://nuway.com.au" aria-label="Nuway home"><img src="assets/logo-white.svg" alt="Nuway Landscape Supplies, Pavers and Walls"></a>
+    <nav>
+      <a href="#jobs">Open roles</a>
+      <a href="#interest">Register interest</a>
+      <a href="https://nuway.com.au/stores-contact/">Our stores</a>
+    </nav>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- ================= LIST VIEW ================= -->
+  <section id="view-list">
+    <div class="hero">
+      <div class="wrap">
+        <h1>Work with South East Queensland's largest landscape supply team</h1>
+        <p>Eleven stores from the Sunshine Coast to the Gold Coast, our own truck fleet, and a crew that's been doing this since 1994. No job is too little or too big for Nuway — and that goes for careers too.</p>
+        <a class="btn on-teal" href="#jobs">See open roles</a>
+      </div>
+    </div>
+
+    <div class="strip">
+      <div class="wrap">
+        <div><strong>11 stores across SEQ</strong><span>Work close to home</span></div>
+        <div><strong>Real career paths</strong><span>Yard to sales to running a store</span></div>
+        <div><strong>Our own fleet</strong><span>Local runs, home every night</span></div>
+        <div><strong>Family-owned since 1994</strong><span>Established, not corporate</span></div>
+      </div>
+    </div>
+
+    <div class="filters" id="jobs">
+      <div class="wrap">
+        <h2>Open roles</h2>
+        <div class="row">
+          <label class="f">Store
+            <select id="f-loc"><option value="">All stores</option></select>
+          </label>
+          <label class="f">Employment type
+            <select id="f-type"><option value="">Any</option></select>
+          </label>
+          <label class="f">Search
+            <input id="f-q" type="search" placeholder="e.g. driver, forklift, Logan">
+          </label>
+        </div>
+        <div class="chips" id="f-roles" role="group" aria-label="Role type"></div>
+        <p class="count" id="count"></p>
+      </div>
+    </div>
+
+    <div class="jobs">
+      <div class="wrap">
+        <div id="job-grid" class="grid"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <section class="interest" id="interest">
+      <div class="wrap">
+        <h2>Don't see your role? Register your interest.</h2>
+        <p>Tell us where you'd like to work and what you do. Store managers check this list first when a spot opens up.</p>
+        <div class="form" id="interest-form-host"></div>
+      </div>
+    </section>
+
+    <section class="stores">
+      <div class="wrap">
+        <h2>Our stores</h2>
+        <div class="grid" id="store-grid"></div>
+      </div>
+    </section>
+  </section>
+
+  <!-- ================= DETAIL VIEW ================= -->
+  <section id="view-detail" class="hidden">
+    <div class="detail"><div class="wrap" id="detail-host"></div></div>
+  </section>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <img src="assets/logo-white.svg" alt="Nuway">
+    <div>Nuway Landscape Supplies · <a href="https://nuway.com.au">nuway.com.au</a> · Head office <a href="tel:0738088442">07 3808 8442</a></div>
+    <div><a href="https://nuway.com.au/privacy-policy/">Privacy</a></div>
+  </div>
+</footer>
+
+<script src="assets/config.js"></script>
+<script src="assets/data.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
