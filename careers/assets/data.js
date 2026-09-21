@@ -55,6 +55,15 @@
       status:"draft", on_seek:false, seek_url:null, accept_direct:true, closes_on:null, published_at:null, created_at:"2026-09-18T00:00:00Z" },
   ];
   const demoApplications = [];
+  const demoSettings = { id: true, interest_email_mode: "store", interest_email_others: "", cc_email: "chris@nuway.com.au" };
+  const demoTemplates = [
+    { id: "tpl-1", name: "Yard hand (casual)", title: "Casual Yard Hand — {store}", role_types: ["Yard"], employment_type: "Casual",
+      summary: "Weekend and school-holiday yard work. Loading customers, keeping the yard tidy.",
+      description: "Hands-on yard work at our {store} store — loading customer vehicles, keeping bays stocked and tidy, helping the drivers load.",
+      requirements: "- 18+\n- Physically fit and happy outdoors\n- Weekend availability\n- Forklift ticket a bonus, not essential",
+      pay_text: "", email_mode: "store", email_others: "", created_at: "2026-09-20T00:00:00Z" },
+  ];
+  const demoEmailLog = [];
 
   const withLocation = (job, locations) => {
     const l = locations.find(x => x.id === job.location_id);
@@ -214,6 +223,76 @@
       const { error } = await s.from("careers_applications").update(patch).eq("id", id);
       if (error) throw error;
     },
+    // ----- module settings -----
+    async settings() {
+      if (DEMO) return Object.assign({}, demoSettings);
+      const s = await client();
+      const { data, error } = await s.from("careers_settings").select("*").eq("id", true).maybeSingle();
+      if (error) throw error;
+      return data || { interest_email_mode: "store", interest_email_others: "", cc_email: "" };
+    },
+    async saveSettings(patch) {
+      if (DEMO) { Object.assign(demoSettings, patch); return demoSettings; }
+      const s = await client();
+      const { data, error } = await s.from("careers_settings").update(patch).eq("id", true).select().single();
+      if (error) throw error;
+      return data;
+    },
+
+    // ----- job templates -----
+    async templates() {
+      if (DEMO) return demoTemplates.slice().sort((a,b) => a.name.localeCompare(b.name));
+      const s = await client();
+      const { data, error } = await s.from("careers_job_templates").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+    async saveTemplate(t) {
+      if (DEMO) {
+        const i = demoTemplates.findIndex(x => x.name.toLowerCase() === (t.name||"").toLowerCase());
+        if (i > -1) Object.assign(demoTemplates[i], t);
+        else demoTemplates.push(Object.assign({ id: "tpl-" + Date.now(), created_at: new Date().toISOString() }, t));
+        return t;
+      }
+      const s = await client();
+      // Saving under an existing name overwrites that template.
+      const { data, error } = await s.from("careers_job_templates").upsert(t, { onConflict: "name" }).select().single();
+      if (error) throw error;
+      return data;
+    },
+    async deleteTemplate(id) {
+      if (DEMO) { const i = demoTemplates.findIndex(t => t.id === id); if (i > -1) demoTemplates.splice(i, 1); return; }
+      const s = await client();
+      const { error } = await s.from("careers_job_templates").delete().eq("id", id);
+      if (error) throw error;
+    },
+
+    // ----- email: manual resend + history -----
+    async resendApplication(applicationId, to) {
+      if (DEMO) {
+        await new Promise(r => setTimeout(r, 400));
+        demoEmailLog.unshift({ id: "log-" + Date.now(), application_id: applicationId, recipients: to.join(", "), kind: "resend", ok: true, created_at: new Date().toISOString() });
+        return { recipients: to };
+      }
+      const s = await client();
+      const { data: { session } } = await s.auth.getSession();
+      if (!session) throw new Error("Session expired — please sign in again.");
+      const res = await fetch(cfg.SUPABASE_URL + "/functions/v1/notify-application", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: cfg.SUPABASE_ANON_KEY, Authorization: "Bearer " + session.access_token },
+        body: JSON.stringify({ resend: { application_id: applicationId, to } }),
+      });
+      const text = await res.text();
+      if (!res.ok) throw new Error(text.slice(0, 300) || ("Send failed (" + res.status + ")"));
+      try { return JSON.parse(text); } catch (e) { return { recipients: to }; }
+    },
+    async emailLog(applicationId) {
+      if (DEMO) return demoEmailLog.filter(l => l.application_id === applicationId);
+      const s = await client();
+      const { data, error } = await s.from("careers_email_log").select("*").eq("application_id", applicationId).order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
     async cvUrl(path) {
       if (DEMO) return "#demo-cv";
       const s = await client();
@@ -243,6 +322,7 @@
     flush();
     return html;
   };
+  api.emails = (t) => String(t || "").split(/[,;\s]+/).map(x => x.trim()).filter(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
   api.slugify = (s) => String(s).toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
   api.fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "";
 
