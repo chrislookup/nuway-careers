@@ -52,7 +52,7 @@ p { margin: 0 0 1em; }
   display: flex; align-items: center; justify-content: space-between;
   min-height: 72px; gap: 16px;
 }
-.site-head .logo img { height: 44px; width: auto; }
+.site-head .logo img { height: 56px; width: auto; }
 .site-head nav a {
   color: var(--white); text-decoration: none; font-weight: 500; margin-left: 22px; font-size: 15px;
 }
@@ -219,7 +219,7 @@ legend { font-weight: 700; color: var(--slate); font-size: 16px; margin-bottom: 
 .site-foot { background: var(--slate); color: var(--white); padding: 34px 0; font-size: 14px; }
 .site-foot .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: center; }
 .site-foot a { color: var(--white); }
-.site-foot img { height: 36px; width: auto; }
+.site-foot img { height: 48px; width: auto; }
 
 /* ---------- misc ---------- */
 .spinner { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--teal); border-radius: 50%; animation: spin .8s linear infinite; margin: 30px auto; }
