@@ -39,21 +39,20 @@ prefixed `careers_` and nothing touches the HR tables. (A separate project works
 1. Supabase → **SQL Editor** → paste and run `supabase/migrations/001_careers.sql`.
 2. Run `supabase/migrations/002_seed.sql`. This adds the 11 stores from nuway.com.au, two sample
    jobs, and `chris@nuway.com.au` as the first admin.
-3. **Authentication → Users → Add user** → email `chris@nuway.com.au`, set a password.
-   (Or on the admin sign-in page use *"email me a sign-in link"*.)
+3. Admin access: anyone whose HR profile tier is **admin**, after their authenticator (2FA) code.
+   There is no separate careers admin list and no way to sign in without 2FA.
 4. **Project Settings → API** → copy the *Project URL* and *anon public* key into
    `careers/assets/config.js`. Push. Demo mode switches off.
 
-Adding another admin later: `insert into careers_admins (email, name) values ('x@nuway.com.au','Name');`
-then create that user under Authentication.
+Adding another careers admin = making them an admin in the HR app. Nothing else to do.
 
 ### What the security rules do
 
 | Who | Can |
 |---|---|
 | Public (anon key) | Read **live** jobs and active stores. Insert an application. Upload a CV (write-only). |
-| Admin (email in `careers_admins`) | Everything: jobs, stores, read/update applications, download CVs. |
-| Anyone else, even signed in | Nothing beyond public. |
+| HR admin, signed in **with 2FA** | Everything: jobs, stores, read/update applications, download CVs. |
+| Anyone else, even signed in (or an admin without the 2FA step) | Nothing beyond public. |
 
 CVs live in a private bucket `careers-cvs` (PDF/Word, 5 MB max). The public can put files in but
 never list or read them; admins get 10-minute signed links.
@@ -80,15 +79,18 @@ store in Admin → Stores), CCs head office, attaches the CV, and sends the appl
 
 Two options — the shortcode is the least fragile with theme updates.
 
-**A. Shortcode (recommended).** Upload `wordpress/nuway-careers-embed.php` under
-*Plugins → Add New → Upload* (zip it first) and activate. Create a page with slug `careers`
-containing `[nuway_careers src="https://chrislookup.github.io/nuway-careers/careers/"]`. The iframe
-auto-sizes and hides the app's own header/footer so the WordPress theme's are used. Later, copy the
-`careers/` folder into the site root (e.g. via FTP as `/careers-app/`) and change `src`.
+The app's final home is **`https://nuway.com.au/wp-content/uploads/careers/`** — every path in the
+app is relative, so the `careers/` folder can be dropped there unchanged (FTP or the file manager).
+The admin is then at `.../uploads/careers/admin/`.
 
-**B. Native.** Copy `careers/` into the WordPress root as `/careers/`. Because it's a real folder,
-WordPress serves it directly at nuway.com.au/careers with no page needed. The admin is then at
-`/careers/admin/`.
+**Shortcode (recommended).** Upload `wordpress/nuway-careers-embed.php` under *Plugins → Add New →
+Upload* (zip it first) and activate. Create a page with slug `careers` containing `[nuway_careers]`.
+The iframe auto-sizes and hides the app's own header/footer so the WordPress theme's are used.
+While the folder is still on GitHub Pages, use
+`[nuway_careers src="https://chrislookup.github.io/nuway-careers/careers/"]`.
+
+**Direct.** Or just link to `/wp-content/uploads/careers/` — it works standalone with its own
+header and footer.
 
 Either way, keep this repo as the source of truth and push changes from here.
 
