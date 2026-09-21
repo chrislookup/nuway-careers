@@ -150,7 +150,7 @@
             ${C.md(j.description)}
             ${j.requirements ? `<h4>What you'll need</h4>${C.md(j.requirements)}` : ""}
           </div>
-          ${j.accept_direct ? `<div id="apply-form" class="form" style="margin-top:34px"></div>` : ""}
+          ${j.accept_direct ? `<div id="apply-form" class="form" style="margin-top:34px;scroll-margin-top:24px"></div>` : ""}
         </div>
         <aside class="side">
           <div class="panel">
@@ -162,6 +162,23 @@
       </div>`;
 
     if (j.accept_direct) renderForm($("#apply-form"), { job: j });
+
+    // "Apply directly" scrolls to the form on this page. Without this the
+    // browser sets the hash to #apply-form, the router doesn't recognise it,
+    // and the applicant gets thrown back to the job list.
+    const jump = $("#apply-jump");
+    if (jump) jump.addEventListener("click", (e) => {
+      e.preventDefault();
+      const form = $("#apply-form");
+      if (!form) return;
+      form.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Focus the first field on desktop; on a phone that would throw the
+      // keyboard up over the form mid-scroll.
+      if (window.matchMedia("(pointer: fine)").matches) {
+        const first = form.querySelector("input, select, textarea");
+        if (first) setTimeout(() => first.focus({ preventScroll: true }), 500);
+      }
+    });
   }
 
   // ---------------- forms ----------------
