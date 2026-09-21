@@ -9,8 +9,8 @@ if (!defined('ABSPATH')) exit;
 
 add_shortcode('nuway_careers', function ($atts) {
   $a = shortcode_atts([
-    // Change this to your GitHub Pages URL while testing, then to https://nuway.com.au/careers-app/ when moved.
-    'src' => 'https://chrislookup.github.io/nuway-careers/careers/',
+    // Final home of the app. While testing on GitHub Pages pass src="https://chrislookup.github.io/nuway-careers/careers/" in the shortcode.
+    'src' => 'https://nuway.com.au/wp-content/uploads/careers/',
   ], $atts);
   $src = esc_url(rtrim($a['src'], '/') . '/?embed=1');
   $id = 'nuway-careers-' . wp_rand(1000, 9999);
