@@ -10,12 +10,20 @@
   if (C.DEMO) $("#demo").classList.remove("hidden");
 
   // ---------------- auth ----------------
+  // Sign-in = password, then the authenticator code (2FA) enrolled in the HR app.
+  // The database only grants admin rights to sessions that have completed 2FA.
+  let mfaFactor = null;
   async function boot() {
     const session = await C.session();
     if (!session) return showLogin();
+    const mfa = await C.mfaStatus().catch(e => ({ needed: true, factorId: null, err: e }));
+    if (mfa.needed) {
+      if (!mfa.factorId) { await C.signOut(); return showLogin("Two-factor authentication isn't set up for this account. Set it up in the HR app first, then sign in here."); }
+      mfaFactor = mfa.factorId; return showLogin(null, true);
+    }
     let ok = false;
     try { ok = await C.isAdmin(); } catch (e) { console.error(e); }
-    if (!ok) { showLogin(`Signed in as ${esc(session.user.email)}, but that email isn't on the admin list.`); await C.signOut(); return; }
+    if (!ok) { await C.signOut(); return showLogin(`${esc(session.user.email)} is signed in but isn't an HR admin, so it can't use the careers admin.`); }
     $("#who").textContent = session.user.email;
     $("#login").classList.add("hidden");
     $("#shell").classList.remove("hidden");
@@ -24,24 +32,29 @@
     window.addEventListener("hashchange", route);
   }
 
-  function showLogin(msg) {
+  function showLogin(msg, codeStep) {
     $("#login").classList.remove("hidden");
     $("#shell").classList.add("hidden");
-    if (msg) $("#login-alert").innerHTML = `<div class="alert bad">${msg}</div>`;
+    $("#step-pass").classList.toggle("hidden", !!codeStep);
+    $("#step-code").classList.toggle("hidden", !codeStep);
+    $("#login-alert").innerHTML = msg ? `<div class="alert bad">${msg}</div>` : "";
+    if (codeStep) $("#l-code").focus();
   }
   $("#l-go").addEventListener("click", async () => {
     const btn = $("#l-go"); btn.disabled = true;
-    try { await C.signIn($("#l-email").value.trim(), $("#l-pass").value); location.reload(); }
-    catch (e) { $("#login-alert").innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; btn.disabled = false; }
+    try { await C.signIn($("#l-email").value.trim(), $("#l-pass").value); $("#l-pass").value = ""; await boot(); }
+    catch (e) { $("#login-alert").innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; }
+    btn.disabled = false;
   });
   $("#l-pass").addEventListener("keydown", e => { if (e.key === "Enter") $("#l-go").click(); });
-  $("#l-magic").addEventListener("click", async (e) => {
-    e.preventDefault();
-    const email = $("#l-email").value.trim();
-    if (!email) return $("#l-email").focus();
-    try { await C.magicLink(email); $("#login-alert").innerHTML = `<div class="alert good">Check your inbox for a sign-in link.</div>`; }
-    catch (err) { $("#login-alert").innerHTML = `<div class="alert bad">${esc(err.message)}</div>`; }
+  $("#l-verify").addEventListener("click", async () => {
+    const btn = $("#l-verify"); btn.disabled = true;
+    try { await C.mfaVerify(mfaFactor, $("#l-code").value.trim()); $("#l-code").value = ""; await boot(); }
+    catch (e) { $("#login-alert").innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; }
+    btn.disabled = false;
   });
+  $("#l-code").addEventListener("keydown", e => { if (e.key === "Enter") $("#l-verify").click(); });
+  $("#l-cancel").addEventListener("click", async (e) => { e.preventDefault(); await C.signOut(); showLogin(); });
   $("#signout").addEventListener("click", async (e) => { e.preventDefault(); await C.signOut(); location.reload(); });
 
   async function load() {
