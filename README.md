@@ -10,7 +10,7 @@ careers/                 ← the public page (drop-in static site)
   index.html             ← job list, job detail, application form, register-interest form
   admin/                 ← head-office admin panel (jobs, applicants, stores)
   assets/config.js       ← ★ put your Supabase URL + anon key here
-  assets/logo-white.svg  ← ★ replace the placeholders with the real logo files
+  assets/logo-white.svg  ← the Nuway wordmark (white on dark, teal on light)
   assets/logo-teal.svg
 supabase/
   migrations/001_careers.sql   ← tables, security rules, CV bucket
@@ -42,8 +42,9 @@ prefixed `careers_` and nothing touches the HR tables. (A separate project works
 3. Admin access: anyone whose HR profile tier is **admin**, after their authenticator (2FA) code.
    There is no separate careers admin list and no way to sign in without 2FA.
 4. Run `supabase/migrations/003_publish_on_insert.sql`,
-   `supabase/migrations/004_admin_is_hr_admin_with_mfa.sql` and
-   `supabase/migrations/005_routing_templates_settings.sql` in that order.
+   `supabase/migrations/004_admin_is_hr_admin_with_mfa.sql`,
+   `supabase/migrations/005_routing_templates_settings.sql` and
+   `supabase/migrations/006_cv_uploads.sql` in that order.
 5. **Project Settings → API** → copy the *Project URL* and *anon public* key into
    `careers/assets/config.js`. Push. Demo mode switches off.
 
@@ -57,8 +58,9 @@ Adding another careers admin = making them an admin in the HR app. Nothing else 
 | HR admin, signed in **with 2FA** | Everything: jobs, stores, read/update applications, download CVs. |
 | Anyone else, even signed in (or an admin without the 2FA step) | Nothing beyond public. |
 
-CVs live in a private bucket `careers-cvs` (PDF/Word, 5 MB max). The public can put files in but
-never list or read them; admins get 10-minute signed links.
+CVs live in a private bucket `careers-cvs` — PDF, Word, or a photo of a printed CV (JPEG, PNG or
+HEIC), 10 MB max. Photos are accepted because a lot of yard and driver applicants apply from a
+phone. The public can put files in but never list or read them; admins get 10-minute signed links.
 
 ## 3. Email notifications via Twilio SendGrid (15 minutes)
 
