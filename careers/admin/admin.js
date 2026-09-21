@@ -5,7 +5,7 @@
 (function () {
   const C = window.Careers, cfg = window.NUWAY_CAREERS, esc = C.esc;
   const $ = (s, r = document) => r.querySelector(s);
-  let locations = [], jobs = [], apps = [];
+  let locations = [], jobs = [], apps = [], templates = [], settings = {};
 
   if (C.DEMO) $("#demo").classList.remove("hidden");
 
@@ -60,7 +60,9 @@
   $("#signout").addEventListener("click", async (e) => { e.preventDefault(); await C.signOut(); location.reload(); });
 
   async function load() {
-    [locations, jobs, apps] = await Promise.all([C.allLocations(), C.allJobs(), C.applications()]);
+    [locations, jobs, apps, templates, settings] = await Promise.all([
+      C.allLocations(), C.allJobs(), C.applications(), C.templates(), C.settings(),
+    ]);
     $("#n-jobs").textContent = jobs.filter(j => j.status === "live").length || "";
     $("#n-new").textContent = apps.filter(a => a.status === "new").length || "";
   }
@@ -73,10 +75,19 @@
     if (m) { renderApplicants(); openApplicant(m[1]); return; }
     if (h.startsWith("#applicants")) return renderApplicants();
     if (h.startsWith("#stores")) return renderStores();
+    if (h.startsWith("#settings")) return renderSettings();
     renderJobs();
   }
 
   const statusPill = (s) => `<span class="status ${esc(s)}">${esc(s)}</span>`;
+  const MODES = [
+    ["store", "The store's hiring email"],
+    ["store_and_others", "The store + other addresses"],
+    ["others_only", "Other addresses only"],
+  ];
+  const modeOptions = (sel) => MODES.map(([v, t]) => `<option value="${v}" ${v === sel ? "selected" : ""}>${t}</option>`).join("");
+  const modeLabel = (m) => (MODES.find(x => x[0] === m) || MODES[0])[1];
+  const storeEmail = (locId) => { const l = locations.find(x => x.id === locId); return l ? (l.hiring_email || l.store_email || "") : ""; };
   const locName = (j) => j.all_locations ? "All stores" : (j.location_name || "—");
 
   // ================= JOBS =================
@@ -105,7 +116,7 @@
       const list = jobs.filter(j => !f || j.status === f);
       $("#j-body").innerHTML = list.length ? list.map(j => `<tr class="row" data-id="${j.id}">
         <td><div class="t">${esc(j.title)}</div><div class="sub">${j.role_types.map(esc).join(", ")}</div></td>
-        <td>${esc(locName(j))}</td>
+        <td>${esc(locName(j))}${j.email_mode && j.email_mode !== "store" ? `<div class="sub">→ ${esc(j.email_mode === "others_only" ? (j.email_others || "") : "store + " + (j.email_others || ""))}</div>` : ""}</td>
         <td>${esc(j.employment_type)}</td>
         <td>${statusPill(j.status)}</td>
         <td>${j.on_seek ? `<a href="${esc(j.seek_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View ↗</a>` : '<span class="muted">—</span>'}</td>
@@ -124,6 +135,11 @@
     openModal(`
       <h2>${job ? "Edit job" : "New job"}</h2>
       <div id="m-alert"></div>
+      ${job || !templates.length ? "" : `<div class="field seek-row" style="background:var(--teal-tint);border-color:#bfe4ea">
+        <label>Start from a template <span class="opt">(optional)</span></label>
+        <select id="e-template"><option value="">— blank job —</option>${templates.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select>
+        <div class="help">Fills everything except the store. <b>{store}</b> in a title is replaced with the store you pick.</div>
+      </div>`}
       <div class="field"><label>Job title</label><input type="text" id="e-title" value="${esc(j.title)}" placeholder="e.g. HR Truck Driver — Logan"><div class="help">Put the store in the title — it's what people scan for.</div></div>
       <div class="two">
         <div class="field"><label>Store</label>
@@ -149,6 +165,24 @@
         </div>
       </div>
 
+      <div class="field"><label>Where applications for this job go</label>
+        <select id="e-email-mode">${modeOptions(j.email_mode || "store")}</select>
+        <div class="help">Store addresses are set in <b>Stores</b>. Head office is copied on everything (<b>Settings</b>).</div>
+      </div>
+      <div class="field" id="e-others-wrap" style="${(j.email_mode || "store") === "store" ? "display:none" : ""}">
+        <label>Other addresses</label>
+        <input type="text" id="e-email-others" value="${esc(j.email_others || "")}" placeholder="jo@nuway.com.au, hr@nuway.com.au">
+        <div class="help">Comma separated.</div>
+      </div>
+
+      ${job ? "" : `<div class="seek-row" style="background:var(--stone);border-color:var(--line)">
+        <label class="small" style="display:flex;gap:8px;align-items:center;font-weight:700;color:var(--slate)"><input type="checkbox" id="e-save-tpl"> Also save this as a reusable template</label>
+        <div id="e-tpl-wrap" style="margin-top:10px;display:none">
+          <div class="field" style="margin:0"><label>Template name</label><input type="text" id="e-tpl-name" placeholder="e.g. Yard hand (casual)"></div>
+          <div class="help">The store is never saved into a template. If the title contains the store name it is swapped for <b>{store}</b> automatically. Saving under an existing name replaces it.</div>
+        </div>
+      </div>`}
+
       <div class="field"><label>Status</label><select id="e-status">${["draft","live","paused","closed"].map(s => `<option ${s === j.status ? "selected" : ""}>${s}</option>`).join("")}</select><div class="help">Only <b>live</b> jobs show on the careers page. Paused hides it without losing anything.</div></div>
 
       <div class="modal-foot">
@@ -157,8 +191,36 @@
       </div>`);
 
     $("#e-seek").addEventListener("change", e => { $("#e-seek-wrap").style.display = e.target.checked ? "" : "none"; });
-    $("#e-all").addEventListener("change", e => { $("#e-loc").disabled = e.target.checked; });
+    $("#e-all").addEventListener("change", e => { $("#e-loc").disabled = e.target.checked; applyStoreToTitle(); });
     $("#e-loc").disabled = j.all_locations;
+    $("#e-email-mode").addEventListener("change", e => { $("#e-others-wrap").style.display = e.target.value === "store" ? "none" : ""; });
+    if ($("#e-save-tpl")) $("#e-save-tpl").addEventListener("change", e => { $("#e-tpl-wrap").style.display = e.target.checked ? "" : "none"; if (e.target.checked) $("#e-tpl-name").focus(); });
+
+    // A template title may contain {store}; keep it in step with the chosen store.
+    let titlePattern = null;
+    const pickedStore = () => { const l = locations.find(x => x.id === $("#e-loc").value); return $("#e-all").checked ? "all stores" : (l ? l.name : ""); };
+    function applyStoreToTitle() {
+      if (!titlePattern || !titlePattern.includes("{store}")) return;
+      const name = pickedStore();
+      $("#e-title").value = titlePattern.replace(/\{store\}/g, name || "{store}");
+    }
+    $("#e-loc").addEventListener("change", applyStoreToTitle);
+    if ($("#e-template")) $("#e-template").addEventListener("change", (e) => {
+      const t = templates.find(x => x.id === e.target.value);
+      if (!t) { titlePattern = null; return; }
+      titlePattern = t.title || "";
+      $("#e-summary").value = t.summary || "";
+      $("#e-desc").value = t.description || "";
+      $("#e-req").value = t.requirements || "";
+      $("#e-pay").value = t.pay_text || "";
+      $("#e-type").value = t.employment_type || "Full-time";
+      document.querySelectorAll("[name=e-role]").forEach(cb => { cb.checked = (t.role_types || []).includes(cb.value); });
+      $("#e-email-mode").value = t.email_mode || "store";
+      $("#e-email-others").value = t.email_others || "";
+      $("#e-others-wrap").style.display = ($("#e-email-mode").value === "store") ? "none" : "";
+      $("#e-title").value = titlePattern;
+      applyStoreToTitle();
+    });
     $("#m-cancel").addEventListener("click", closeModal);
     if (job) $("#m-del").addEventListener("click", async () => {
       if (!confirm(`Delete "${job.title}"? Applications stay on file.`)) return;
@@ -182,6 +244,8 @@
         on_seek: onSeek,
         seek_url: onSeek ? $("#e-seek-url").value.trim() : null,
         accept_direct: onSeek ? $("#e-direct").checked : true,
+        email_mode: $("#e-email-mode").value,
+        email_others: $("#e-email-mode").value === "store" ? null : ($("#e-email-others").value.trim() || null),
         status: $("#e-status").value,
       };
       const problems = [];
@@ -192,11 +256,30 @@
       if (!out.description) problems.push("a description");
       if (onSeek && !/^https?:\/\/(www\.)?seek\.com\.au\//i.test(out.seek_url)) problems.push("a valid seek.com.au link");
       if (onSeek && !out.accept_direct && !out.seek_url) problems.push("somewhere to apply");
+      if (out.email_mode !== "store" && !C.emails(out.email_others).length) problems.push("at least one valid other address");
+      const saveTpl = $("#e-save-tpl") && $("#e-save-tpl").checked;
+      const tplName = saveTpl ? $("#e-tpl-name").value.trim() : "";
+      if (saveTpl && !tplName) problems.push("a template name");
       if (problems.length) { $("#m-alert").innerHTML = `<div class="alert bad">Needs ${problems.join(", ")}.</div>`; $("#modal-box").scrollTop = 0; return; }
       if (job) out.id = job.id;
       else { out.slug = C.slugify(out.title) + "-" + Math.random().toString(36).slice(2, 6); out.created_by = $("#who").textContent; }
       const btn = $("#m-save"); btn.disabled = true;
-      try { await C.saveJob(out); closeModal(); await load(); renderJobs(); }
+      try {
+        await C.saveJob(out);
+        if (saveTpl) {
+          // Templates are store-free: swap the chosen store's name for {store}.
+          const store = pickedStore();
+          const generic = (t) => (store && t) ? t.split(store).join("{store}") : t;
+          await C.saveTemplate({
+            name: tplName, title: generic(out.title), role_types: out.role_types,
+            employment_type: out.employment_type, summary: generic(out.summary),
+            description: generic(out.description), requirements: out.requirements,
+            pay_text: out.pay_text, email_mode: out.email_mode, email_others: out.email_others,
+            created_by: $("#who").textContent,
+          });
+        }
+        closeModal(); await load(); renderJobs();
+      }
       catch (e) { $("#m-alert").innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; btn.disabled = false; }
     });
   }
@@ -255,6 +338,9 @@
     const a = apps.find(x => x.id === id);
     if (!a) return;
     const yn = (v) => v === true ? "Yes" : v === false ? "No" : "—";
+    const sEmail = storeEmail(a.location_id);
+    let log = [];
+    try { log = await C.emailLog(a.id); } catch (e) { console.error(e); }
     openModal(`
       <div class="app-detail">
         <div class="bar" style="margin-bottom:12px">
@@ -277,10 +363,41 @@
           <a class="btn ghost sm" href="mailto:${esc(a.email)}?subject=${encodeURIComponent("Your application to Nuway" + (a.job_title ? " — " + a.job_title : ""))}">Email applicant</a>
         </div>
         <div id="cv-preview"></div>
+
+        <div class="seek-row" style="margin-top:18px;background:var(--stone);border-color:var(--line)">
+          <label class="small" style="display:flex;gap:8px;align-items:center;font-weight:700;color:var(--slate)"><input type="checkbox" id="ap-resend-on"> Send this application on by email</label>
+          <div id="ap-resend-wrap" style="margin-top:10px;display:none">
+            <div class="field" style="margin:0 0 10px"><div class="checks">
+              <label><input type="checkbox" id="rs-store" ${sEmail ? "checked" : "disabled"}> ${sEmail ? "The store — " + esc(sEmail) : "No store address on file"}</label>
+            </div></div>
+            <div class="field" style="margin:0"><label>Other addresses</label><input type="text" id="rs-others" placeholder="jo@nuway.com.au, hr@nuway.com.au"><div class="help">Comma separated. The CV is attached again.</div></div>
+            <button class="btn sm" id="rs-go" style="margin-top:10px">Send now</button>
+          </div>
+        </div>
+        <div id="rs-result"></div>
+        ${log.length ? `<div class="help" style="margin-top:10px"><b>Sent:</b> ${log.map(l => `${C.fmtDate(l.created_at)} → ${esc(l.recipients)}${l.ok ? "" : " (failed)"}`).join(" · ")}</div>` : ""}
+
         <div class="field" style="margin-top:18px"><label>Internal notes</label><textarea id="ap-notes" style="min-height:80px">${esc(a.admin_notes || "")}</textarea></div>
         <div class="modal-foot"><span></span><div class="right"><button class="btn ghost" id="m-cancel">Close</button><button class="btn" id="m-save">Save</button></div></div>
       </div>`);
     $("#m-cancel").addEventListener("click", () => { closeModal(); location.hash = "#applicants"; });
+    $("#ap-resend-on").addEventListener("change", e => { $("#ap-resend-wrap").style.display = e.target.checked ? "" : "none"; });
+    $("#rs-go").addEventListener("click", async () => {
+      const to = [];
+      if ($("#rs-store").checked && sEmail) to.push(sEmail);
+      to.push(...C.emails($("#rs-others").value));
+      const uniq = [...new Set(to.map(x => x.toLowerCase()))];
+      if (!uniq.length) { $("#rs-result").innerHTML = `<div class="alert bad">Pick the store or type at least one valid address.</div>`; return; }
+      const btn = $("#rs-go"); btn.disabled = true; btn.textContent = "Sending…";
+      try {
+        await C.resendApplication(a.id, uniq);
+        $("#rs-result").innerHTML = `<div class="alert good">Sent to ${esc(uniq.join(", "))}.</div>`;
+        $("#ap-resend-wrap").style.display = "none"; $("#ap-resend-on").checked = false;
+      } catch (e) {
+        $("#rs-result").innerHTML = `<div class="alert bad">${esc(e.message)}</div>`;
+      }
+      btn.disabled = false; btn.textContent = "Send now";
+    });
     $("#m-save").addEventListener("click", async () => {
       try {
         await C.updateApplication(a.id, { status: $("#ap-status").value, admin_notes: $("#ap-notes").value.trim() || null });
@@ -333,6 +450,75 @@
         closeModal(); await load(); renderStores();
       } catch (e) { $("#m-alert").innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; }
     });
+  }
+
+  // ================= SETTINGS =================
+  function renderSettings() {
+    const st = settings || {};
+    $("#content").innerHTML = `
+      <div class="bar"><h2>Settings</h2></div>
+      <div class="stats" style="grid-template-columns:1fr"><div class="stat" style="box-shadow:none;background:transparent;padding:0">
+        <span>Applications for a specific job follow that job's own setting (Jobs → edit a job). The settings below cover everything else.</span>
+      </div></div>
+      <div id="m-alert"></div>
+
+      <div class="form" style="max-width:720px">
+        <h3>Register-your-interest applications</h3>
+        <p class="lead">People who apply without a specific job in mind, from the "Don't see your role?" form.</p>
+        <div class="field"><label>Send them to</label>
+          <select id="set-mode">${modeOptions(st.interest_email_mode || "store")}</select>
+          <div class="help">"The store" is whichever store the applicant chose, using the address in <b>Stores</b>.</div>
+        </div>
+        <div class="field" id="set-others-wrap" style="${(st.interest_email_mode || "store") === "store" ? "display:none" : ""}">
+          <label>Other addresses</label>
+          <input type="text" id="set-others" value="${esc(st.interest_email_others || "")}" placeholder="hr@nuway.com.au, chris@nuway.com.au">
+          <div class="help">Comma separated.</div>
+        </div>
+
+        <h3 style="margin-top:26px">Head office copy</h3>
+        <div class="field"><label>Always CC <span class="opt">(optional)</span></label>
+          <input type="text" id="set-cc" value="${esc(st.cc_email || "")}" placeholder="chris@nuway.com.au">
+          <div class="help">Copied on every application and expression of interest, whatever the routing above.</div>
+        </div>
+
+        <button class="btn" id="set-save">Save settings</button>
+      </div>
+
+      <div class="bar" style="margin:34px 0 12px"><h2 style="font-size:22px">Job templates</h2>
+        <div class="muted small">Created by ticking "save as a template" when you post a job.</div>
+      </div>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Template</th><th>Title</th><th>Roles</th><th>Applications go to</th><th></th></tr></thead>
+        <tbody>${templates.length ? templates.map(t => `<tr>
+          <td class="t">${esc(t.name)}</td>
+          <td class="sub">${esc(t.title || "—")}</td>
+          <td class="sub">${(t.role_types || []).map(esc).join(", ") || "—"}</td>
+          <td class="sub">${esc(modeLabel(t.email_mode))}${t.email_others ? " · " + esc(t.email_others) : ""}</td>
+          <td><button class="btn danger sm" data-del-tpl="${t.id}">Delete</button></td>
+        </tr>`).join("") : `<tr><td colspan="5" class="muted">No templates yet.</td></tr>`}</tbody>
+      </table></div>`;
+
+    $("#set-mode").addEventListener("change", e => { $("#set-others-wrap").style.display = e.target.value === "store" ? "none" : ""; });
+    $("#set-save").addEventListener("click", async () => {
+      const mode = $("#set-mode").value;
+      const others = $("#set-others").value.trim();
+      const cc = $("#set-cc").value.trim();
+      if (mode !== "store" && !C.emails(others).length) { $("#m-alert").innerHTML = `<div class="alert bad">Add at least one valid address, or send to the store.</div>`; return; }
+      if (cc && !C.emails(cc).length) { $("#m-alert").innerHTML = `<div class="alert bad">That CC address doesn't look right.</div>`; return; }
+      const btn = $("#set-save"); btn.disabled = true;
+      try {
+        await C.saveSettings({ interest_email_mode: mode, interest_email_others: mode === "store" ? null : others, cc_email: cc || null, updated_by: $("#who").textContent });
+        await load();
+        renderSettings();
+        $("#m-alert").innerHTML = `<div class="alert good">Settings saved.</div>`;
+      } catch (e) { $("#m-alert").innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; btn.disabled = false; }
+    });
+    document.querySelectorAll("[data-del-tpl]").forEach(b => b.addEventListener("click", async () => {
+      const t = templates.find(x => x.id === b.dataset.delTpl);
+      if (!confirm(`Delete the template "${t ? t.name : ""}"? Jobs already posted from it are not affected.`)) return;
+      try { await C.deleteTemplate(b.dataset.delTpl); await load(); renderSettings(); }
+      catch (e) { $("#m-alert").innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; }
+    }));
   }
 
   // ---------------- modal ----------------
