@@ -16,7 +16,9 @@
   async function boot() {
     const session = await C.session();
     if (!session) return showLogin();
-    const mfa = await C.mfaStatus().catch(e => ({ needed: true, factorId: null, err: e }));
+    let mfa;
+    try { mfa = await C.mfaStatus(); }
+    catch (e) { console.error(e); await C.signOut(); return showLogin(); } // stale/expired session
     if (mfa.needed) {
       if (!mfa.factorId) { await C.signOut(); return showLogin("Two-factor authentication isn't set up for this account. Set it up in the HR app first, then sign in here."); }
       mfaFactor = mfa.factorId; return showLogin(null, true);
