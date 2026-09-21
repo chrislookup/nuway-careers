@@ -225,9 +225,9 @@
         <fieldset>
           <legend>Your CV ${isInterest ? '<span class="opt" style="font-weight:400;color:var(--grey)">(optional)</span>' : ""}</legend>
           <label class="upload" id="upload">
-            <input type="file" name="cv" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+            <input type="file" name="cv" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.heic,.heif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/heic,image/heif">
             <strong>Click to choose a file, or drag it here</strong>
-            <span class="hint">PDF or Word, up to 5 MB</span>
+            <span class="hint">PDF, Word or a photo of it — up to 10 MB</span>
           </label>
           <div class="err" id="cv-err"></div>
         </fieldset>
@@ -250,8 +250,8 @@
     const up = $("#upload", host), fileIn = form.cv, hint = $(".hint", up), cvErr = $("#cv-err", host);
     const showFile = () => {
       const f = fileIn.files[0]; cvErr.textContent = "";
-      if (!f) { hint.textContent = "PDF or Word, up to 5 MB"; hint.className = "hint"; return; }
-      if (f.size > 5 * 1024 * 1024) { cvErr.textContent = "That file is over 5 MB. Please export a smaller PDF."; fileIn.value = ""; return; }
+      if (!f) { hint.textContent = "PDF, Word or a photo of it — up to 10 MB"; hint.className = "hint"; return; }
+      if (f.size > 10 * 1024 * 1024) { cvErr.textContent = "That file is over 10 MB. Try a smaller PDF, or a single photo rather than a scan."; fileIn.value = ""; return; }
       hint.textContent = `✓ ${f.name} (${(f.size / 1024).toFixed(0)} KB)`; hint.className = "hint file";
     };
     fileIn.addEventListener("change", showFile);
