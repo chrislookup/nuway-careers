@@ -109,7 +109,17 @@
       const path = `${new Date().toISOString().slice(0,10)}/${crypto.randomUUID()}_${safe}`;
       if (DEMO) { await new Promise(r => setTimeout(r, 400)); return { path, filename: file.name }; }
       const s = await client();
-      const { error } = await s.storage.from("careers-cvs").upload(path, file, { contentType: file.type, upsert: false });
+      // Some phones hand over a file with no type set (HEIC especially), and the
+      // bucket rejects anything it can't identify — so fall back to the extension.
+      const byExt = {
+        pdf: "application/pdf", doc: "application/msword",
+        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+        heic: "image/heic", heif: "image/heif",
+      };
+      const ext = (file.name.split(".").pop() || "").toLowerCase();
+      const contentType = file.type || byExt[ext] || "application/octet-stream";
+      const { error } = await s.storage.from("careers-cvs").upload(path, file, { contentType, upsert: false });
       if (error) throw error;
       return { path, filename: file.name };
     },
