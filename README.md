@@ -41,7 +41,10 @@ prefixed `careers_` and nothing touches the HR tables. (A separate project works
    jobs, and `chris@nuway.com.au` as the first admin.
 3. Admin access: anyone whose HR profile tier is **admin**, after their authenticator (2FA) code.
    There is no separate careers admin list and no way to sign in without 2FA.
-4. **Project Settings → API** → copy the *Project URL* and *anon public* key into
+4. Run `supabase/migrations/003_publish_on_insert.sql`,
+   `supabase/migrations/004_admin_is_hr_admin_with_mfa.sql` and
+   `supabase/migrations/005_routing_templates_settings.sql` in that order.
+5. **Project Settings → API** → copy the *Project URL* and *anon public* key into
    `careers/assets/config.js`. Push. Demo mode switches off.
 
 Adding another careers admin = making them an admin in the HR app. Nothing else to do.
@@ -72,8 +75,37 @@ Uses the same SendGrid setup planned for the HR app (domain authenticated in Clo
 3. Supabase → **Database → Webhooks → Create**: table `careers_applications`, event **Insert**,
    type *Supabase Edge Function* → `notify-application`.
 
-Each application then emails the store's **hiring email** (falls back to the store email — set per
-store in Admin → Stores), CCs head office, attaches the CV, and sends the applicant a confirmation.
+Each application then emails whoever that job routes to, CCs head office, attaches the CV, and
+sends the applicant a confirmation. Every send (automatic or manual) is written to
+`careers_email_log`, shown as a *Sent:* line on the applicant.
+
+### Where applications go
+
+| Set in | Applies to |
+|---|---|
+| Admin → Jobs → edit a job → *Where applications for this job go* | that job only |
+| Admin → **Settings** → *Register-your-interest applications* | the "Don't see your role?" form |
+| Admin → **Settings** → *Head office copy* | CC'd on everything |
+
+Three choices each: the store's hiring email (falls back to the store email — set per store in
+Admin → Stores), the store **plus** other addresses, or other addresses only. If routing ever
+resolves to nothing the function falls back to the head-office CC, so an application is never lost.
+
+`CAREERS_CC_EMAIL` stays as the fallback CC if *Head office copy* is left blank. Optionally set
+`CAREERS_WEBHOOK_SECRET` and add the same value as a `x-careers-secret` header on the webhook.
+
+### Resending an application
+
+Admin → Applicants → open someone → *Send this application on by email*: tick the store, add any
+other addresses, send. The email is rebuilt from the database — nothing from the browser decides
+its content — and only an HR admin who has passed 2FA can trigger it.
+
+### Job templates
+
+When creating a job, tick *Also save this as a reusable template* and give it a name. Templates
+are deliberately store-free: the store name in the title is stored as `{store}` and filled in with
+whichever store you pick next time. On a new job, choose the template at the top and everything but
+the store is filled in. Templates are listed (and deleted) in Admin → Settings.
 
 ## 4. Move to nuway.com.au (WordPress)
 
@@ -101,6 +133,9 @@ Either way, keep this repo as the source of truth and push changes from here.
 - **SEEK role**: tick *also advertised on SEEK* and paste the SEEK link. The card shows an
   *Apply on SEEK* button; untick *also accept applications through our own form* if you only want
   SEEK to receive applications.
+- **Templates**: start a new job from a saved template, or tick *save as a template* at the bottom
+  of a new job to reuse it. The store is always chosen fresh.
+- **Pass an application on**: open the applicant → *Send this application on by email*.
 - **Pause / close**: change status. Paused hides the job but keeps it ready to relist.
 - **Applicants**: filter by role, store or status; click a row to see everything, open the CV, add
   notes, move through *new → reviewed → interviewing → offered → hired / declined*. *Export CSV*
